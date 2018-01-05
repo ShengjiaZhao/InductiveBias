@@ -137,7 +137,10 @@ true_samples = tf.random_normal(tf.stack([200, args.z_dim]))
 loss_mmd = compute_mmd(true_samples, train_z)
 loss_nll_per_sample = tf.reduce_mean(tf.square(train_xr - train_x), axis=(1, 2, 3))
 loss_nll = tf.reduce_mean(loss_nll_per_sample)
-loss = loss_nll + loss_mmd
+if args.use_reconstruction:
+    loss = loss_nll + loss_mmd
+else:
+    loss = loss_mmd
 trainer = tf.train.AdamOptimizer(1e-3).minimize(loss)
 
 train_summary = tf.summary.merge([

@@ -5,20 +5,21 @@ from models import *
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--gpu', type=str, default='2', help='GPU to use')
+parser.add_argument('-g', '--gpu', type=str, default='3', help='GPU to use')
 parser.add_argument('-z', '--z_dim', type=int, default=20, help='z dimension')
 parser.add_argument('-m', '--model', type=str, default='gaussian', help='gaussian or discrete')
-parser.add_argument('-d', '--dataset', type=str, default='size_4', help='mnist or random')
+parser.add_argument('-d', '--dataset', type=str, default='size_8', help='mnist or random')
 parser.add_argument('-lr', '--lr', type=float, default=-4, help='learning rate')
 parser.add_argument('-r', '--repeat', type=int, default=3, help='Number of times to train discriminator each time generator is trained')
 args = parser.parse_args()
 
 batch_size = 100
-# root_path = '/home/ubuntu/data/dots_small'
-root_path = '/data/dots'
+data_root = '/home/ubuntu/data/dots_small'
+log_root = '/home/ubuntu/data/log2'
+# root_path = '/data/dots'
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 name = '%s/gan/model=%s-zdim=%d-lr=%.2f-rep=%d' % (args.dataset, args.model, args.z_dim, args.lr, args.repeat)
-dataset = DotsDataset(db_path=os.path.join(root_path, args.dataset))
+dataset = DotsDataset(db_path=os.path.join(data_root, args.dataset))
 
 z = tf.placeholder(tf.float32, [None, args.z_dim])
 x = tf.placeholder(tf.float32, [None] + dataset.data_dims)
@@ -70,7 +71,7 @@ hist_summary = tf.summary.merge([
     tf.summary.histogram('gen', gen_size_ph),
 ])
 
-model_path = "log2/%s" % name
+model_path = os.path.join(log_root, name)
 make_model_path(model_path)
 # logger = open(os.path.join(model_path, 'result.txt'), 'w')
 sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))

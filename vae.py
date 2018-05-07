@@ -14,11 +14,12 @@ args = parser.parse_args()
 
 # Hypothesis: optimization gets stuck in local minimum and do not differentiate between the different x
 batch_size = 100
-# root_path = '/home/ubuntu/data/dots_small'
-root_path = '/data/dots'
+data_root = '/home/ubuntu/data/dots_small'
+log_root = '/home/ubuntu/data/log2'
+# root_path = '/data/dots'
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 name = '%s/vae/model=%s-zdim=%d-lr=%.2f-beta=%.2f' % (args.dataset, 'gaussian', args.z_dim, args.lr, args.beta)
-dataset = DotsDataset(db_path=os.path.join(root_path, args.dataset))
+dataset = DotsDataset(db_path=os.path.join(data_root, args.dataset))
 
 encoder = encoder_gaussian_c64
 generator = generator_c64
@@ -63,7 +64,7 @@ hist_summary = tf.summary.merge([
     tf.summary.histogram('gen', gen_size_ph),
 ])
 
-model_path = "log2/%s" % name
+model_path = os.path.join(log_root, name)
 make_model_path(model_path)
 # logger = open(os.path.join(model_path, 'result.txt'), 'w')
 sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
@@ -85,7 +86,7 @@ while True:
         summary_val = sess.run(eval_summary, feed_dict={train_x: bx, gen_z: sample_z(100, args.z_dim, 'gaussian')})
         summary_writer.add_summary(summary_val, idx)
 
-        bxg = sess.run(g, feed_dict={z: sample_z(512, args.z_dim, 'gaussian')})
+        bxg = sess.run(gen_x, feed_dict={gen_z: sample_z(512, args.z_dim, 'gaussian')})
         np.save(os.path.join(model_path, 'samples%d.npy' % (idx // 10000)), bxg)
 
         if 'size' in args.dataset:

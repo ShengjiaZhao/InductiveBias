@@ -24,9 +24,9 @@ def gumbel_softmax(logits, temperature, hard=False):
 
 
 def sample_z(batch_size, z_dim, model='gaussian'):
-    if model == 'gaussian':
+    if 'gaussian' in model:
         return np.random.normal(0, 1, [batch_size, z_dim])
-    elif model == 'bernoulli':
+    elif 'bernoulli' in model:
         return (np.random.normal(0, 1, [batch_size, z_dim]) > 0).astype(np.float)
     return None
 
@@ -77,6 +77,20 @@ def encoder_gaussian_c64(x, z_dim):
         return [mean, stddev], sample
 
 
+def encoder_c64fc(x, z_dim):
+    with tf.variable_scope('i_net'):
+        fc = tf.reshape(x, [-1, np.prod(x.get_shape().as_list()[1:])])
+        fc = fc_bn_lrelu(fc, 1024)
+        fc = fc_bn_lrelu(fc, 1024)
+        fc = fc_bn_lrelu(fc, 1024)
+        fc = fc_bn_lrelu(fc, 1024)
+        mean = tf.contrib.layers.fully_connected(fc, z_dim, activation_fn=tf.identity)
+        stddev = tf.contrib.layers.fully_connected(fc, z_dim, activation_fn=tf.sigmoid)
+        stddev = tf.maximum(stddev, 0.01)
+        sample = mean + tf.multiply(stddev, tf.random_normal(tf.stack([tf.shape(x)[0], z_dim])))
+        return [mean, stddev], sample
+
+
 def generator_c64(z, reuse=False):
     with tf.variable_scope('g_net') as vs:
         if reuse:
@@ -86,8 +100,37 @@ def generator_c64(z, reuse=False):
         conv = tf.reshape(fc, tf.stack([tf.shape(fc)[0], 4, 4, 256]))
         conv = conv2d_t_bn_relu(conv, 192, 4, 2)
         conv = conv2d_t_relu(conv, 128, 4, 2)
+        conv = conv2d_t_relu(conv, 128, 4, 1)
         conv = conv2d_t_relu(conv, 64, 4, 2)
         output = tf.contrib.layers.convolution2d_transpose(conv, 3, 4, 2, activation_fn=tf.sigmoid)
+        return output
+
+
+def generator_c64s(z, reuse=False):
+    with tf.variable_scope('g_net') as vs:
+        if reuse:
+            vs.reuse_variables()
+        fc = fc_relu(z, 512)
+        fc = fc_relu(fc, 4*4*256)
+        conv = tf.reshape(fc, tf.stack([tf.shape(fc)[0], 4, 4, 256]))
+        conv = conv2d_t_relu(conv, 128, 4, 2)
+        conv = conv2d_t_relu(conv, 96, 4, 2)
+        conv = conv2d_t_relu(conv, 64, 4, 1)
+        conv = conv2d_t_relu(conv, 32, 4, 2)
+        output = tf.contrib.layers.convolution2d_transpose(conv, 3, 4, 2, activation_fn=tf.sigmoid)
+        return output
+
+
+def generator_c64fc(z, reuse=False):
+    with tf.variable_scope('g_net') as vs:
+        if reuse:
+            vs.reuse_variables()
+        fc = fc_bn_relu(z, 1024)
+        fc = fc_bn_relu(fc, 1024)
+        fc = fc_bn_relu(fc, 1024)
+        fc = fc_bn_relu(fc, 1024)
+        fc = tf.contrib.layers.fully_connected(fc, 64*64*3, activation_fn=tf.sigmoid)
+        output = tf.reshape(fc, tf.stack([tf.shape(fc)[0], 64, 64, 3]))
         return output
 
 
@@ -135,6 +178,33 @@ def discriminator_c64(x, reuse=False):
         conv = conv2d_lrelu(conv, 192, 4, 2)
         conv = conv2d_lrelu(conv, 256, 4, 2)
         fc = tf.reshape(conv, [-1, np.prod(conv.get_shape().as_list()[1:])])
+        fc = fc_lrelu(fc, 1024)
+        fc = tf.contrib.layers.fully_connected(fc, 1, activation_fn=tf.identity)
+        return fc
+
+
+def discriminator_c64s(x, reuse=False):
+    with tf.variable_scope('d_net') as vs:
+        if reuse:
+            vs.reuse_variables()
+        conv = conv2d_lrelu(x, 32, 4, 2)
+        conv = conv2d_lrelu(conv, 64, 4, 2)
+        conv = conv2d_lrelu(conv, 96, 4, 2)
+        conv = conv2d_lrelu(conv, 128, 4, 2)
+        fc = tf.reshape(conv, [-1, np.prod(conv.get_shape().as_list()[1:])])
+        fc = fc_lrelu(fc, 512)
+        fc = tf.contrib.layers.fully_connected(fc, 1, activation_fn=tf.identity)
+        return fc
+
+
+def discriminator_c64fc(x, reuse=False):
+    with tf.variable_scope('d_net') as vs:
+        if reuse:
+            vs.reuse_variables()
+        fc = tf.reshape(x, [-1, np.prod(x.get_shape().as_list()[1:])])
+        fc = fc_lrelu(fc, 1024)
+        fc = fc_lrelu(fc, 1024)
+        fc = fc_lrelu(fc, 1024)
         fc = fc_lrelu(fc, 1024)
         fc = tf.contrib.layers.fully_connected(fc, 1, activation_fn=tf.identity)
         return fc
